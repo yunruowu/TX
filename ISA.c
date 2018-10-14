@@ -24,7 +24,8 @@ enum opcodes{
 		OP_NOP,OP_JR,
 	//	MOV
 		OP_MOVI,OP_MOVD,
-
+  //  val 
+    OP_VLOAD,OP_VSTORE,OP_VADD,
 		NUM_OPCODES
 };
 enum functions{
@@ -42,6 +43,10 @@ int ireg_size = 0x1000;
 int *r;
 int dreg_size = 0x8;
 double *rrd;
+char* val;
+int val_size = 128;
+
+
 
 unsigned char read_mem_ubyte(long addr)
 {
@@ -377,6 +382,60 @@ long INSN_JR(long pc)
 	return 0;
 }
 
+//向量指令
+long INSN_VLOAD(long pc){
+  
+	unsigned int insn = read_mem_uword(pc);//读第一条指令
+	int RS1	= (insn>>21) & 0x1f;
+	int RD = (insn>>16) & 0x1f;
+  int type = (insn>>13) & 0x7;//type of data 
+  int num = (insn>>9) & 0xf;//num of data
+  int addr = get_int(RS1);
+  int addrv = get_int (RD);
+  for(int i = 0;i < num ;i++){
+    if(type == 0){
+      *((float*)(val+addrv+i*4)) = *((float*)(mem+addr+i*4)); 
+    }
+  }
+  
+  return pc+4;
+}
+
+long INSN_VSTORE(long pc){
+	unsigned int insn = read_mem_uword(pc);//读第一条指令
+	int RS1	= (insn>>21) & 0x1f;
+	int RD = (insn>>16) & 0x1f;
+  int type = (insn>>13) & 0x7;//type of data 
+  int num = (insn>>9) & 0xf;//num of data
+  int addr1 = get_int(RS1);
+  int addrv = get_int (RD);
+  for(int i = 0;i < num ;i++){
+    if(type == 0){
+      *((float*)(mem+addrv+i*4)) = *((float*)(val+addr1+i*4)); 
+    }
+  }
+  return pc + 4;
+}
+
+long INSN_VADD(long pc){
+  unsigned int insn = read_mem_uword(pc);
+  int RS1 = (insn>>21) & 0x1f;
+  int RS2 = (insn>>16) & 0x1f;
+  int RD = (insn>>11) & 0x1f;
+  int type = (insn>>8) & 0x7;
+  int num = (insn>>4) & 0xf;
+  int addr1 = get_int(RS1);
+  int addr2 = get_int(RS2);
+  int addrd = get_int (RD);
+  for(int i = 0; i<num; i++){
+    if(type == 0){
+      *((float*)(val+addrd+4*i))=*((float*)(val+addr1+4*i)) + *((float*)(val+addr2+i*4)); 
+    }
+  }
+  return 0; 
+}
+
+
 
 void Execution(void)
 {
@@ -421,7 +480,12 @@ void Execution(void)
 				case OP_MOVI:	pc = INSN_MOVI(pc);
 								break;
 				case OP_MOVD:	pc = INSN_MOVD(pc);
+                break;
+        case OP_VLOAD: pc = INSN_VLOAD(pc);
+                break;
+        case OP_VSTORE: pc = INSN_VSTORE(pc);
 								break;
+        case OP_VADD: pc = INSN_VADD(pc);
 				default:		printf("error1:unimplemented instruction\n");
 								exit(-1);
 			}//end switch(OPCODE)
@@ -462,6 +526,9 @@ int main()
 	mem = (char*)malloc(sizeof(char)* mem_size);
 	r = (int*)malloc(sizeof(int)*ireg_size);
 	rrd = (double*)malloc(sizeof(double)*8);
+  val = (char*)malloc(sizeof(char)* val_size);
+
+
 	if(mem==NULL)
 	{
 		printf("error:main memory allocation\n");
@@ -472,7 +539,11 @@ int main()
 		printf("error:main Register file allocation\n");
 		exit(-1);
 	}
-	
+	if(val==NULL)
+	{
+		printf("error: val allocation\n");
+		exit(-1);
+  }
 	put_int(0,0);
 	put_double(0,0.0);
 	put_int(1,1);
@@ -568,7 +639,7 @@ int main()
 
 	free (mem);
 	free (r);
-
+  free (val);
 return 0;
 }
 

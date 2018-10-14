@@ -13,4 +13,6 @@ int main(int argc,char* agrgv[])
   fp = (float*)(&c);
   printf("vector:(%lf,%lf,%lf,%lf)\n",fp[0],fp[1],fp[2],fp[3]);
   return 0;
+  
 }
+  
