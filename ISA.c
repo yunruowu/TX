@@ -206,6 +206,12 @@ void put_double(long addr,double val){
 
 
 
+float get_V_float(long addr){
+  return *(float*)(val+addr);
+}
+void put_V_float(long addr,float v){
+  *((float*)(val+addr)) = v;
+}
 
 
 
@@ -384,7 +390,6 @@ long INSN_JR(long pc)
 
 //向量指令
 long INSN_VLOAD(long pc){
-  
 	unsigned int insn = read_mem_uword(pc);//读第一条指令
 	int RS1	= (insn>>21) & 0x1f;
 	int RD = (insn>>16) & 0x1f;
@@ -392,10 +397,10 @@ long INSN_VLOAD(long pc){
   int num = (insn>>9) & 0xf;//num of data
   int addr = get_int(RS1);
   int addrv = get_int (RD);
-  for(int i = 0;i < num ;i++){
-    if(type == 0){
-      *((float*)(val+addrv+i*4)) = *((float*)(mem+addr+i*4)); 
-    }
+  for(int i = 0;i <4;i++){
+      float a = read_mem_float(addr+i*4);
+      put_V_float(RD*16+i*4,a);
+     /// printf("%f",a);
   }
   
   return pc+4;
@@ -409,10 +414,9 @@ long INSN_VSTORE(long pc){
   int num = (insn>>9) & 0xf;//num of data
   int addr1 = get_int(RS1);
   int addrv = get_int (RD);
-  for(int i = 0;i < num ;i++){
-    if(type == 0){
-      *((float*)(mem+addrv+i*4)) = *((float*)(val+addr1+i*4)); 
-    }
+  for(int i = 0;i < 4;i++){
+      write_mem_float((addrv+i*4),get_V_float(addr1*16+i*4)); 
+     // printf("i12i%f  %d   %d\n",get_V_float(addr1*16+i*4),addr1*16+i*4,addrv+i*4);
   }
   return pc + 4;
 }
@@ -427,14 +431,13 @@ long INSN_VADD(long pc){
   int addr1 = get_int(RS1);
   int addr2 = get_int(RS2);
   int addrd = get_int (RD);
-  for(int i = 0; i<num; i++){
-    if(type == 0){
-      *((float*)(val+addrd+4*i))=*((float*)(val+addr1+4*i)) + *((float*)(val+addr2+i*4)); 
-    }
+  for(int i = 0; i<4; i++){
+    put_V_float((RD*16+4*i),get_V_float(RS1*16+4*i)+get_V_float(RS2*16+4*i));
   }
-  return 0; 
+  
+  return pc + 4; 
 }
-
+  
 
 
 void Execution(void)
@@ -443,7 +446,6 @@ void Execution(void)
 	pc = 0x1000;
 	for(;pc;)
 	{	
-	//	printf("%d\n",pc);
 		unsigned int insn = read_mem_uword(pc);//读第一条指令
 		//指令译码
 		int OPCODE = (insn>>26) & 0x3f;
@@ -486,6 +488,7 @@ void Execution(void)
         case OP_VSTORE: pc = INSN_VSTORE(pc);
 								break;
         case OP_VADD: pc = INSN_VADD(pc);
+                break;
 				default:		printf("error1:unimplemented instruction\n");
 								exit(-1);
 			}//end switch(OPCODE)
@@ -499,7 +502,7 @@ void Execution(void)
 								break;*/
 				case OP_ADDDOU: pc = INSN_ADDDOU(pc);
 								break;
-				default:		printf("error2:unimplemented instruction\n");
+				default:		printf("error3:unimplemented instruction\n");
 								exit(-1);
 			}//end switch(FUNC)
 		}//end else
@@ -547,11 +550,13 @@ int main()
 	put_int(0,0);
 	put_double(0,0.0);
 	put_int(1,1);
-	for(long i = 0x1100;(i/8-0x1100)<512; i=i+8 ){
+	/*for(long i = 0x1100;(i/8-0x1100)<512; i=i+8 ){
 		write_mem_double(i,2.0);
 	}
 	write_mem_uword(1,512);
 	//write_mem_uword(0x100,0x18030001);
+  
+
 
 	write_mem_uword(0x1000,0x2c010000);//MOVI R1=0	i
 ///	printf("%d\n",get_int(1));
@@ -571,11 +576,29 @@ int main()
 	write_mem_uword(0x1020,0x28000000);
 	Execution();
 	printf("%f\n",get_double(1));
-	printf("%f\n",read_mem_double(8));
-	
-	
-	
-	
+	printf("%f\n",read_mem_double(8));*/
+
+  write_mem_float(10,3.0);//3.0->mem[10]
+  write_mem_float(14,2.0);//2.0->mem[14]
+  write_mem_float(18,1.0);//1.0->mem[18]
+  write_mem_float(22,-1.0);//-1.0->mem[22]
+  
+//write_mem_uword(0x1000,0x1c400200);//LOADII R2 = 512	N
+  write_mem_uword(0x1000,0x1c40000a);//LOADII R2 = 10;
+  write_mem_uword(0x1004,0x1c60001a);//LoADII R3 = 26
+  write_mem_uword(0x1008,0x34410000);//VLOAD V1 = fa;
+  write_mem_uword(0x100c,0x34420000);//VLOAD V2 = fb;
+  write_mem_uword(0x1010,0x3c221800);//V3 = V2+V1;
+  write_mem_uword(0x1014,0x1c800003);//R4 = 3;
+  write_mem_uword(0x1018,0x38830000);//V3->mem[26];
+  write_mem_uword(0x101c,0x28000000);
+  Execution();
+ /* printf("%d\n",get_int(2));
+  printf("%d\n",get_int(3));
+  printf("%d\n",get_int(4));*/
+ // put_V_float(2,1.0);
+ for(int i = 26;i<42;i=i+4)
+	  printf("vector%d :%f\n",(i-26)/4,read_mem_float(i));
 	
 	
 /*	uch1 ='1';
