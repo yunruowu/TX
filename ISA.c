@@ -400,7 +400,6 @@ long INSN_VLOAD(long pc){
   for(int i = 0;i <num;i++){
       float a = read_mem_float(addr+i*num);
       put_V_float(RD*16+i*num,a);
-     /// printf("%f",a);
   }
   
   return pc+4;
@@ -416,7 +415,6 @@ long INSN_VSTORE(long pc){
   int addrv = get_int (RD);
   for(int i = 0;i < num;i++){
       write_mem_float((addrv+i*num),get_V_float(addr1*16+i*num)); 
-     // printf("i12i%f  %d   %d\n",get_V_float(addr1*16+i*4),addr1*16+i*4,addrv+i*4);
   }
   return pc + 4;
 }
@@ -593,10 +591,6 @@ int main()
   write_mem_uword(0x1018,0x38830004);//V3->mem[26];
   write_mem_uword(0x101c,0x28000000);
   Execution();
- /* printf("%d\n",get_int(2));
-  printf("%d\n",get_int(3));
-  printf("%d\n",get_int(4));*/
- // put_V_float(2,1.0);
  for(int i = 26;i<42;i=i+4)
 	  printf("vector%d :%f\n",(i-26)/4,read_mem_float(i));
 	
