@@ -394,12 +394,12 @@ long INSN_VLOAD(long pc){
 	int RS1	= (insn>>21) & 0x1f;
 	int RD = (insn>>16) & 0x1f;
   int type = (insn>>13) & 0x7;//type of data 
-  int num = (insn>>9) & 0xf;//num of data
+  int num = (insn) & 0xf;//num of data
   int addr = get_int(RS1);
   int addrv = get_int (RD);
-  for(int i = 0;i <4;i++){
-      float a = read_mem_float(addr+i*4);
-      put_V_float(RD*16+i*4,a);
+  for(int i = 0;i <num;i++){
+      float a = read_mem_float(addr+i*num);
+      put_V_float(RD*16+i*num,a);
      /// printf("%f",a);
   }
   
@@ -411,11 +411,11 @@ long INSN_VSTORE(long pc){
 	int RS1	= (insn>>21) & 0x1f;
 	int RD = (insn>>16) & 0x1f;
   int type = (insn>>13) & 0x7;//type of data 
-  int num = (insn>>9) & 0xf;//num of data
+  int num = (insn) & 0xf;//num of data
   int addr1 = get_int(RS1);
   int addrv = get_int (RD);
-  for(int i = 0;i < 4;i++){
-      write_mem_float((addrv+i*4),get_V_float(addr1*16+i*4)); 
+  for(int i = 0;i < num;i++){
+      write_mem_float((addrv+i*num),get_V_float(addr1*16+i*num)); 
      // printf("i12i%f  %d   %d\n",get_V_float(addr1*16+i*4),addr1*16+i*4,addrv+i*4);
   }
   return pc + 4;
@@ -427,12 +427,12 @@ long INSN_VADD(long pc){
   int RS2 = (insn>>16) & 0x1f;
   int RD = (insn>>11) & 0x1f;
   int type = (insn>>8) & 0x7;
-  int num = (insn>>4) & 0xf;
+  int num = (insn) & 0xf;
   int addr1 = get_int(RS1);
   int addr2 = get_int(RS2);
   int addrd = get_int (RD);
-  for(int i = 0; i<4; i++){
-    put_V_float((RD*16+4*i),get_V_float(RS1*16+4*i)+get_V_float(RS2*16+4*i));
+  for(int i = 0; i<num; i++){
+    put_V_float((RD*16+num*i),get_V_float(RS1*16+num*i)+get_V_float(RS2*16+num*i));
   }
   
   return pc + 4; 
@@ -586,11 +586,11 @@ int main()
 //write_mem_uword(0x1000,0x1c400200);//LOADII R2 = 512	N
   write_mem_uword(0x1000,0x1c40000a);//LOADII R2 = 10;
   write_mem_uword(0x1004,0x1c60001a);//LoADII R3 = 26
-  write_mem_uword(0x1008,0x34410000);//VLOAD V1 = fa;
-  write_mem_uword(0x100c,0x34420000);//VLOAD V2 = fb;
-  write_mem_uword(0x1010,0x3c221800);//V3 = V2+V1;
+  write_mem_uword(0x1008,0x34410004);//VLOAD V1 = fa;
+  write_mem_uword(0x100c,0x34420004);//VLOAD V2 = fb;
+  write_mem_uword(0x1010,0x3c221804);//V3 = V2+V1;
   write_mem_uword(0x1014,0x1c800003);//R4 = 3;
-  write_mem_uword(0x1018,0x38830000);//V3->mem[26];
+  write_mem_uword(0x1018,0x38830004);//V3->mem[26];
   write_mem_uword(0x101c,0x28000000);
   Execution();
  /* printf("%d\n",get_int(2));
