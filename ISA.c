@@ -11,9 +11,9 @@
 #include<math.h>
 /**********新修改的部分*************/
 //cache的结构
-#define DC_BLOCK_SIZE 1
+#define DC_BLOCK_SIZE 20
 #define DC_NUM_SETS 10
-#define DC_SET_SIZE 10
+#define DC_SET_SIZE 20
 #define DC_WR_BUFF_SIZE 10
 #define DC_INVALID 2
 struct cacheBlk{
@@ -74,6 +74,8 @@ int accessDCache(int opcode, int addr, int time)
 {
     setword(addr);
     int HoM = HorM(tag);
+    printf("命中或缺失：%d   ",HoM);
+    printf("Index：%d  tag: %d  status:%d\n",Index,tag,dCache[Index][slot].status);
     if(HoM==1)//hit
     {
         if(opcode==6)//read
@@ -355,8 +357,6 @@ long INSN_ADDI(long pc){
 	int RS1	= (insn>>21) & 0x1f;
 	int RS2 = (insn>>16) & 0x1f;
 	int IMM = (int)(short)(insn & 0x1fffff);//符号扩展
-//	printf("IMM:%d\n",IMM);
-//	printf("%d",get_int(RS1));
 	put_int(RS1,get_int(RS1)+IMM);
 	return pc + 4;
 
@@ -387,8 +387,6 @@ long INSN_ADDDOU(long pc){//double的寄存器加
 	int RS1	= (insn>>21) & 0x1f;
 	int RS2 = (insn>>16) & 0x1f;
 	int RD = (insn>>11) & 0x1f;
-	//printf("%d\n",get_int(RS1)+get_int(RS2));
-	//printf("%f\n",read_mem_double(get_int(RS1))+get_int(RS2));
 	
 	put_double(RD,get_double(RD) + read_mem_double(get_int(RS1)+get_int(RS2)));
 	return pc + 4;
@@ -405,7 +403,6 @@ long INSN_ADDDOU(long pc){//double的寄存器加
 }*/
 
 long INSN_MOVI(long pc){
-//	printf("MOVI\n");
 	unsigned int insn = read_mem_uword(pc);
 
 	int RS1 = (insn>>21) & 0x1f;//寄存器号
@@ -415,7 +412,6 @@ long INSN_MOVI(long pc){
 }
 
 long INSN_MOVD(long pc){
-//	printf("MOVD\n");
 	unsigned int insn = read_mem_uword(pc);
 	int RS1 = (insn>>21) & 0x1f;//寄存器号
 	int RS2 = (insn>>16) & 0x1f;
@@ -427,11 +423,10 @@ long INSN_MOVD(long pc){
 long INSN_LOADI(long pc){
 	unsigned int insn = read_mem_uword(pc);//读第一条指令
 	int OPCODE = (insn>>26) & 0x3f;
-  time += accessDCache(6,OPCODE,time);
+  time += accessDCache(6,pc,time);
 	int RS1 = (insn>>21) & 0x1f;//寄存器号
 	int RS2 = (insn>>16) & 0x1f;
 	int IMM = (int)(short)(insn & 0xffff);
-//	printf("%d",get_int(RS2));
 	int val=read_mem_word ( (long) ( IMM + get_int ( RS1 ) ) );
 	put_int(RS2,val);
 	return pc+4;
@@ -439,10 +434,9 @@ long INSN_LOADI(long pc){
 }
 
 long INSN_LOADIMM(long pc){
-	printf("LO\n");
 	unsigned int insn = read_mem_uword(pc);
 	int OPCODE = (insn>>26) & 0x3f;
-  time += accessDCache(6,OPCODE,time);
+  time += accessDCache(6,pc,time);
 	int RS1 = (insn>>21) & 0x1f;
 	int IMM = (int)(short)(insn & 0xfffff);
 	put_int(RS1,IMM);
@@ -451,7 +445,7 @@ long INSN_LOADIMM(long pc){
 long INSN_LOADD(long pc){
 	unsigned int insn = read_mem_uword(pc);
 	int OPCODE = (insn>>26) & 0x3f;
-  time += accessDCache(6,OPCODE,time);
+  time += accessDCache(6,pc,time);
 	int RS1 = (insn>>21) & 0x1f;
 	int RS2 = (insn>>16) & 0x1f;
 	int IMM = (int)(short)(insn & 0xffff);
@@ -556,7 +550,7 @@ void Execution(void)
 	pc = 0x1000;
 	for(;pc;)
 	{	
- printf("time:%d\n",time);
+    printf("time:%d\n",time);
 		unsigned int insn = read_mem_uword(pc);//读第一条指令
 		//指令译码
 		int OPCODE = (insn>>26) & 0x3f;
@@ -578,10 +572,8 @@ void Execution(void)
 				case OP_NOP:	pc = INSN_NOP(pc);
 								break;
 				case OP_LOADI:  pc = INSN_LOADI(pc);
-							//	printf("%d\n",get_int(1));					
 								break;
 				case OP_LOADIMM:pc = INSN_LOADIMM(pc);
-							//	printf("%f\n",1.1);
 								break;
 				case OP_LOADD:	pc = INSN_LOADD(pc);
 								break;
@@ -651,7 +643,7 @@ int main()
 	}
 	if(r==NULL)
 	{
-		printf("error:main Register file allocation\n");
+		 printf("error:main Register file allocation\n");
 		exit(-1);
 	}
 	if(val==NULL)
@@ -662,33 +654,7 @@ int main()
 	put_int(0,0);
 	put_double(0,0.0);
 	put_int(1,1);
-	/*for(long i = 0x1100;(i/8-0x1100)<512; i=i+8 ){
-		write_mem_double(i,2.0);
-	}
-	write_mem_uword(1,512);
-	//write_mem_uword(0x100,0x18030001);
   
-
-
-	write_mem_uword(0x1000,0x2c010000);//MOVI R1=0	i
-///	printf("%d\n",get_int(1));
-	write_mem_uword(0x1004,0x30010000);//MOVD D1=0.0	sum
-//	printf("%f\n",get_double(1));
-	//printf("%d\n",(0x1c400200>>26)&0x3f);
-	write_mem_uword(0x1008,0x1c400200);//LOADII R2 = 512	N
-//	write_mem_uword(0x1008,0x1c400003);//LOADII R2 = 3	N
-	write_mem_uword(0x100c,0x1c601108);//A->R3
-
-
-
-	write_mem_uword(0x1010,0x00610802);//sum = sum + A[i];
-	write_mem_uword(0x1014,0x04200008);//i+8
-	write_mem_uword(0x1018,0x10220000);//bre
-	write_mem_uword(0x101c,0x14200008);//store sum->mem[8]; 
-	write_mem_uword(0x1020,0x28000000);
-	Execution();
-	printf("%f\n",get_double(1));
-	printf("%f\n",read_mem_double(8));*/
 
   int time = 1 ;
   write_mem_float(10,3.0);//3.0->mem[10]
@@ -696,77 +662,19 @@ int main()
   write_mem_float(18,1.0);//1.0->mem[18]
   write_mem_float(22,-1.0);//-1.0->mem[22]
   
-//write_mem_uword(0x1000,0x1c400200);//LOADII R2 = 512	N
   write_mem_uword(0x1000,0x1c40000a);//LOADII R2 = 10;
-  write_mem_uword(0x1004,0x1c60001a);//LoADII R3 = 26
-  write_mem_uword(0x1008,0x34410004);//VLOAD V1 = fa;
-  write_mem_uword(0x100c,0x34420004);//VLOAD V2 = fb;
-  write_mem_uword(0x1010,0x3c221804);//V3 = V2+V1;
-  write_mem_uword(0x1014,0x1c800003);//R4 = 3;
-  write_mem_uword(0x1018,0x38830004);//V3->mem[26];
-  write_mem_uword(0x101c,0x28000000);
+  int x=0;
+  int y =0;
+  for(int i = 0x1004;x<50;i=i+0x4)
+  {
+     write_mem_uword(i,0x1c40000a);//LOADII R2 = 10;
+     x++;
+     y = i;
+  }
+  printf("%d",y);
+  write_mem_uword(4300,0x28000000);
   Execution();
 
- /*for(int i = 26;i<42;i=i+4)
-	  printf("vector%d :%f\n",(i-26)/4,read_mem_float(i));
-	*/
-/*	uch1 ='1';
-	cha1 = 'a';
-	uns1 = 123;
-	sho1 = -123;
-	in1 = -1234567;
-	uni1 = 1234567;
-	fl1 = 123.6;
-	dou1 = 123.456789;
-	write_mem_ubyte(0,uch1);
-	uch2 = read_mem_ubyte (0);
-
-	write_mem_byte(10,cha1);
-	cha2 = read_mem_byte (10);
-
-	write_mem_uhalfword (20,uns1);
-	uns2 = read_mem_uhalfword (20);
-
-	write_mem_halfword (30, sho1);
-	sho2 = read_mem_halfword(30);
-	
-	write_mem_uword (40,uni1);
-	uni2 = read_mem_uword(40);
-	
-	write_mem_word(50,in1);
-	in2 = read_mem_word (50);
-	
-	write_mem_float(70,fl1);
-	fl2 = read_mem_float(70);
-	
-	write_mem_double (70,dou1);
-	dou2 = read_mem_double (70);
-	
-	printf("uchar:%c\n",uch2);
-	printf("char:%c\n",cha2);
-	printf("uword:%d\n",uni2);
-	printf("float:%f\n",fl2);
-	printf("double:%f\n",dou2);
-	
-
-	printf("\n\n\n\n\n");
-
-	put_int(1,in2);
-	printf("int:%d\n",get_int(1));
-	put_uint(2,uni2);
-
-	printf("unsigned short:%d\n",get_ushor(3));
-	put_flo(4,fl2);
-	printf("float:%f\n",get_flo(4));
-	put_shor(5,sho2);
-	printf("short:%d\n",get_shor(5));
-	put_ushor(6,uns2);
-	printf("unsigned short:%d\n",get_ushor(6));
-	put_char(7,cha2);
-	printf("char:%c\n",get_char(7));*/
-
-	
-	
 	
 
 	free (mem);
