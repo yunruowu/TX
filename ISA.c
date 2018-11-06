@@ -8,6 +8,108 @@
 #define ISA 
 #include<stdio.h>
 #include<stdlib.h>
+#include<math.h>
+/**********新修改的部分*************/
+//cache的结构
+#define DC_BLOCK_SIZE 1
+#define DC_NUM_SETS 10
+#define DC_SET_SIZE 10
+#define DC_WR_BUFF_SIZE 10
+#define DC_INVALID 2
+struct cacheBlk{
+    int tag;
+    int status;
+    int trdy;
+}dCache[DC_NUM_SETS][DC_SET_SIZE];
+
+//写缓存的结构
+struct writeBuffer{
+  int tag;
+  int trdy;
+}dcWrBuff[DC_WR_BUFF_SIZE];
+
+
+int MemRdLatency = 5;
+int slot;
+int lurSlot,lurTime;
+//求解标志和地址
+int blkOffsetBits,IndexMask,tagMask,blk,Index,tag;
+void setword(int addr){
+  
+    blkOffsetBits = log(DC_BLOCK_SIZE)/log(2);
+    IndexMask = (unsigned)(DC_NUM_SETS-1);
+    tagMask = ~IndexMask;
+
+    blk = ((unsigned)addr)>>blkOffsetBits;
+    Index = (int)(blk & IndexMask);
+    tag = (int)(blk & tagMask);
+    return ;
+}
+//判断是命中还是缺失
+int HorM(int tag){
+  for(int i=0;i<DC_SET_SIZE;i++){
+      if((dCache[Index][i].tag == tag)&&(dCache[Index][i].status != DC_INVALID)){
+        slot = i;
+        return 1;
+      }else{
+        if(dCache[Index][i].trdy < lurTime){
+          lurTime = dCache[Index][i].trdy;
+          lurSlot = i;
+        }
+      }
+  }
+  return 0;
+}
+
+int wrBack(int tag,int time){
+    for(int i=0; i<DC_WR_BUFF_SIZE;i++){
+        if(dcWrBuff[i].tag == tag)
+          return 0;
+        else
+          return 5;
+    }
+}
+//访问数据cache
+int accessDCache(int opcode, int addr, int time)
+{
+    setword(addr);
+    int HoM = HorM(tag);
+    if(HoM==1)//hit
+    {
+        if(opcode==6)//read
+        {
+            dCache[Index][slot].trdy = time;
+        }else{//write
+            dCache[Index][slot].trdy = time;
+            dCache[Index][slot].status = 2;
+        }
+        return 0;
+    }else{//miss
+        if(opcode==6)//read
+        {
+            int Ttrdy = MemRdLatency;
+            if(dCache[Index][lurSlot].status==2){
+                Ttrdy += wrBack(tag,time);
+            }
+            dCache[Index][lurSlot].tag = tag;
+            dCache[Index][lurSlot].trdy = time + Ttrdy;
+            dCache[Index][lurSlot].status = 1;
+            return Ttrdy;
+        }else{
+            int Ttrdy = 0;
+            if(dCache[Index][lurSlot].status==2){
+                Ttrdy = wrBack(tag,time);
+            }else{
+                dCache[Index][lurSlot].status = 2;
+            }
+            Ttrdy += MemRdLatency;
+            dCache[Index][lurSlot].tag = tag;
+            dCache[Index][lurSlot].trdy = time + Ttrdy;
+            return Ttrdy;
+        }
+    }
+
+}
 
 enum opcodes{
 	//	R-Type
@@ -37,6 +139,10 @@ enum functions{
 
 
 
+
+
+
+int time;
 char* mem;
 long mem_size = 0x080000;
 int ireg_size = 0x1000;
@@ -319,7 +425,9 @@ long INSN_MOVD(long pc){
 
 
 long INSN_LOADI(long pc){
-	unsigned int insn = read_mem_uword(pc);
+	unsigned int insn = read_mem_uword(pc);//读第一条指令
+	int OPCODE = (insn>>26) & 0x3f;
+  time += accessDCache(6,OPCODE,time);
 	int RS1 = (insn>>21) & 0x1f;//寄存器号
 	int RS2 = (insn>>16) & 0x1f;
 	int IMM = (int)(short)(insn & 0xffff);
@@ -331,8 +439,10 @@ long INSN_LOADI(long pc){
 }
 
 long INSN_LOADIMM(long pc){
-//	printf("LO\n");
+	printf("LO\n");
 	unsigned int insn = read_mem_uword(pc);
+	int OPCODE = (insn>>26) & 0x3f;
+  time += accessDCache(6,OPCODE,time);
 	int RS1 = (insn>>21) & 0x1f;
 	int IMM = (int)(short)(insn & 0xfffff);
 	put_int(RS1,IMM);
@@ -340,6 +450,8 @@ long INSN_LOADIMM(long pc){
 }
 long INSN_LOADD(long pc){
 	unsigned int insn = read_mem_uword(pc);
+	int OPCODE = (insn>>26) & 0x3f;
+  time += accessDCache(6,OPCODE,time);
 	int RS1 = (insn>>21) & 0x1f;
 	int RS2 = (insn>>16) & 0x1f;
 	int IMM = (int)(short)(insn & 0xffff);
@@ -444,6 +556,7 @@ void Execution(void)
 	pc = 0x1000;
 	for(;pc;)
 	{	
+ printf("time:%d\n",time);
 		unsigned int insn = read_mem_uword(pc);//读第一条指令
 		//指令译码
 		int OPCODE = (insn>>26) & 0x3f;
@@ -454,6 +567,7 @@ void Execution(void)
 		unsigned int UIMM = (unsigned int)(short)(insn & 0xffff);//0扩展
 		int FUNC = insn & 0x7ff;
 		int OFFSET = insn & 0x3fffff;
+    time++;
 		if(OPCODE)
 		{
 			switch(OPCODE){
@@ -576,6 +690,7 @@ int main()
 	printf("%f\n",get_double(1));
 	printf("%f\n",read_mem_double(8));*/
 
+  int time = 1 ;
   write_mem_float(10,3.0);//3.0->mem[10]
   write_mem_float(14,2.0);//2.0->mem[14]
   write_mem_float(18,1.0);//1.0->mem[18]
@@ -591,10 +706,10 @@ int main()
   write_mem_uword(0x1018,0x38830004);//V3->mem[26];
   write_mem_uword(0x101c,0x28000000);
   Execution();
- for(int i = 26;i<42;i=i+4)
+
+ /*for(int i = 26;i<42;i=i+4)
 	  printf("vector%d :%f\n",(i-26)/4,read_mem_float(i));
-	
-	
+	*/
 /*	uch1 ='1';
 	cha1 = 'a';
 	uns1 = 123;
